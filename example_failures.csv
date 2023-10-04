@@ -1,0 +1,2 @@
+Method,Name,Error,Occurrences
+POST,/project/[id]/users,HTTPError('404 Client Error: Not Found for url: /project/[id]/users'),1

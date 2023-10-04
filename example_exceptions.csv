@@ -1,0 +1,24 @@
+Count,Message,Traceback,Nodes
+1,module 'string' has no attribute 'letters',"  File ""/Users/kapilagrawal/Documents/Projects/loadgen/.venv/lib/python3.11/site-packages/locust/user/task.py"", line 347, in run
+    self.execute_next_task()
+  File ""/Users/kapilagrawal/Documents/Projects/loadgen/.venv/lib/python3.11/site-packages/locust/user/task.py"", line 372, in execute_next_task
+    self.execute_task(self._task_queue.pop(0))
+  File ""/Users/kapilagrawal/Documents/Projects/loadgen/.venv/lib/python3.11/site-packages/locust/user/task.py"", line 384, in execute_task
+    task(self)
+  File ""/Users/kapilagrawal/Documents/Projects/loadgen/loadgenerator/project.py"", line 242, in chat
+    msg = """".join( [random.choice(string.letters) for i in range(30)] )
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File ""/Users/kapilagrawal/Documents/Projects/loadgen/loadgenerator/project.py"", line 242, in <listcomp>
+    msg = """".join( [random.choice(string.letters) for i in range(30)] )
+                                  ^^^^^^^^^^^^^^
+",local
+1,[Errno 2] No such file or directory: '/Users/kapilagrawal/Documents/Projects/loadgen/tech-support.jpg',"  File ""/Users/kapilagrawal/Documents/Projects/loadgen/.venv/lib/python3.11/site-packages/locust/user/task.py"", line 347, in run
+    self.execute_next_task()
+  File ""/Users/kapilagrawal/Documents/Projects/loadgen/.venv/lib/python3.11/site-packages/locust/user/task.py"", line 372, in execute_next_task
+    self.execute_task(self._task_queue.pop(0))
+  File ""/Users/kapilagrawal/Documents/Projects/loadgen/.venv/lib/python3.11/site-packages/locust/user/task.py"", line 384, in execute_task
+    task(self)
+  File ""/Users/kapilagrawal/Documents/Projects/loadgen/loadgenerator/project.py"", line 269, in file_upload
+    qqtotalfilesize=os.stat(path).st_size)
+                    ^^^^^^^^^^^^^
+",local
