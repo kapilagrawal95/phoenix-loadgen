@@ -1,9 +1,31 @@
-from locust import HttpUser, constant, task
+from locust import HttpUser, constant, task, events
 import random
 import re
+import atexit
+
 
 # REQ_CNT = 0
 # SUC_CNT = 0
+custom_metrics = {
+    "my_metric_1": [],
+    "my_metric_2": [],
+}
+
+def request_success_handler(request_type, name, response_time, response_length):
+    custom_metrics["my_metric_1"].append(response_time)
+    custom_metrics["my_metric_2"].append(response_length)
+
+# Function to save custom metrics to a file
+def save_metrics_to_file(metrics, filename):
+    with open(filename, 'w') as file:
+        for metric_name, metric_data in metrics.items():
+            file.write(f'{metric_name}: {metric_data}\n')
+
+# Function to be called when the test ends
+def on_locust_exit():
+    save_metrics_to_file(custom_metrics, 'custom_metrics.txt')
+
+atexit.register(on_locust_exit)
 
 def get_user():
     id = random.randint(1,1)
@@ -34,7 +56,7 @@ class HotelReservationUser(HttpUser):
         
         lat = 38.0235 + (random.randint(0, 481) - 240.5)/1000.0
         lon = -122.095 + (random.randint(0, 325) - 157.0)/1000.0
-        r = self.client.get("/hotels?inDate="+in_date_str+"&outDate="+out_date_str+"&lat="+str(lat)+"&lon="+str(lon))
+        r = self.client.get("/hotels?inDate="+in_date_str+"&outDate="+out_date_str+"&lat="+str(lat)+"&lon="+str(lon),name="search_hotel")
         
     @task(390)
     def recommend(self):
@@ -48,7 +70,7 @@ class HotelReservationUser(HttpUser):
             req_param = "price"
         lat = 38.0235 + (random.randint(0, 481) - 240.5)/1000.0
         lon = -122.095 + (random.randint(0, 325) - 157.0)/1000.0
-        r = self.client.get("/recommendations?require="+req_param+"&lat="+str(lat)+"&lon="+str(lon))
+        r = self.client.get("/recommendations?require="+req_param+"&lat="+str(lat)+"&lon="+str(lon),name="recommend")
 
     @task(5)
     def reserve(self):
@@ -71,7 +93,7 @@ class HotelReservationUser(HttpUser):
         cust_name = user_id
         num_room = "1"
         r = self.client.post("/reservation?inDate="+in_date_str+"&outDate="+out_date_str+"&hotelId="+hotel_id
-                             +"&username="+user_id+"&password="+password+"&number="+num_room+"&customerName=Cornell_")
+                             +"&username="+user_id+"&password="+password+"&number="+num_room+"&customerName=Cornell_",name="reserve")
     
     @task(5)
     def user_login(self):

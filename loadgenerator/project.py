@@ -12,7 +12,7 @@ from locust import TaskSet, task
 import time
 # from locust.event import request
 
-# current_milli_time = lambda: int(round(time.time() * 1000))
+current_milli_time = lambda: int(round(time.time() * 1000))
 # pos_triggered = pos_registered = 0 #delete this in the end
 
 # PAGE_TASKS  = os.environ.get("PAGE_TASKS", '')
@@ -165,41 +165,71 @@ import time
 class Websocket():
     def __init__(self, page):
         self.c = Client(page)
-        print(page)
-        print(self.c)
-        print("=============")
+        # print(page)
+        # print(self.c)
+        # print("=============")
         # print(self.c)
         self.l = page
         # self.pending_text = None
+        self.c.on("clientTracking.clientUpdated", self.on_update_position)
         self.c.on("clientTracking.clientUpdated", self.noop)
         self.c.on("clientTracking.clientDisconnected", self.noop)
         self.c.on("new-chat-message", self.noop)
+        self.c.on("new-chat-message", self.on_chat)
+        print("done on-chat")
         self.c.on("reciveNewFile", self.noop)
         self.c.on("otUpdateApplied", self.update_version)
-        print("before emit")
-        print([{"project_id": page.project_id}])
+        # print("before emit")
+        # print([{"project_id": page.project_id}])
         self.emit("joinProject", [{"project_id": page.project_id}], id=1)
         
         with gevent.Timeout(5000, False):
             m = self.c.recv()
-            print(m)
+            # print(m)
             m = self.c.recv()
-            print(m)
+            # print(m)
             self.root_folder =  m["args"][1]["rootFolder"][0] if len(m["args"]) > 1 else None
             self.main_tex = m["args"][1]["rootDoc_id"] if len(m["args"]) > 1 else None
-            print("self.main_tex: "+ self.main_tex)
+            # print("self.main_tex: "+ self.main_tex)
             if self.root_folder:
                 page.imgs = [file['_id'] for file in self.root_folder['fileRefs']]
             self.emit("joinDoc", [self.main_tex], id=2)
             old_doc = self.c.recv()
-            print(old_doc)
-            print("=======================")
+            # print(old_doc)
+            # print("=======================")
             self.doc_text = "\n".join(old_doc["args"][1])
             self.doc_version = old_doc["args"][2]
             self.emit("clientTracking.getConnectedUsers", [], id=3)
             self.c.recv()
         assert self.doc_version is not None
+    
+    pos_triggered = pos_registered = 0
+    def on_update_position(self, args):
 
+        rec_ts = current_milli_time()
+        if 'client_ts' in args[0] and self.l.parent.email != args[0]['email']:
+            self.l.events.request_success.fire(request_type='WebSocket',
+                                name="update_cursor_position",
+                                response_time=rec_ts - args[0]['client_ts'],
+                                response_length=0)
+            # print('user %s saw user %s moving at [%s:%s]' % (self.l.parent.email, args[0]['email'], args[0]['row'], args[0]['column']))
+
+            global pos_registered
+            pos_registered += 1
+
+        pass
+
+    def on_chat(self, args):
+
+        rec_ts = current_milli_time()
+        if 'client_ts' in args[0] and self.l.parent.email != args[0]['user']['email']:
+            self.l.events.request_success.fire(request_type='WebSocket',
+                                name="receive_chat_message",
+                                response_time=rec_ts - int(args[0]['client_ts']),
+                                response_length=0)
+            # print('user %s received chat from %s' % (self.l.parent.email, args[0]['user']['email']))
+        pass
+    
     def recv(self): self.c.recv()
 
     def update_version(self, args):
@@ -226,8 +256,8 @@ class Websocket():
 
         
     def emit(self, name, args, id=None, add_version=False):
-        print("in project emit")
-        print(name, args, id)
+        # print("in project emit")
+        # print(name, args, id)
         try:
             self.c.emit(name, args, id, add_version)
         except:
@@ -239,9 +269,33 @@ def template(path):
         return string.Template(f.read())
 
 def chat(l):
-    msg = "".join( [random.choice(string.letters) for i in range(30)] )
-    p = dict(_csrf=l.csrf_token, content=msg)
-    l.client.post("/project/%s/messages" % l.project_id, params=p, name="/project/[id]/messages")
+    msg = "".join( [random.choice(string.ascii_letters) for i in range(30)] )
+    # p = dict(_csrf=l.csrf_token, content=msg)
+    # res = l.client.get("/project/%s/messages" % l.project_id)
+    # print(res.content)
+    # print("++++++here in chat")
+    # csrf_token = csrf.find_in_page(res.content)
+    # print(csrf_token, l.csrf_token)
+    client_ts = current_milli_time()
+    p = {
+        "_csrf": l.csrf_token,
+        "content": msg
+        }
+    # print(p)
+    # print("=================")
+    # print(p)
+    # print("/project/%s/messages" % l.project_id)
+    # print("=================")
+    # print("http://localhost:8080/project/{}/messages?_csrf={}&content=hi".format(l.project_id, l.csrf_token))
+    # r = l.client.post("/project/{}/messages?_csrf={}&content=hi".format(l.project_id, l.csrf_token))
+    r = l.client.post("http://localhost:8080/project/%s/messages" % l.project_id, params=p, name="/project/[id]/messages")
+    # print("Response Headers:")
+    # for key, value in r.headers.items():
+    #     print(f"{key}: {value}")
+    con = r.content
+    decoded_data = con.decode('utf-8')
+    # print(decoded_data)
+    # print("=================")
 
 DOCUMENT_TEMPLATE = template("document.tex")
 def edit_document(l):
@@ -252,10 +306,15 @@ def edit_document(l):
 def stop(l):
     l.interrupt()
 
+def get_random_email_except(self_email):
+    i = random.randint(10,21)
+    return "user{}@netsail.uci.edu".format(i)
+    
 def share_project(l):
     l.client.get("/user/contacts")
-    p = dict(_csrf=l.csrf_token, email="joerg.2@higgsboson.tk", privileges="readAndWrite")
-    l.client.post("/project/%s/users" % l.project_id, data=p, name="/project/[id]/users")
+    p = dict(_csrf=l.csrf_token, email=get_random_email_except("admin@example.com"), privileges="readAndWrite")
+    res = l.client.post("/project/%s/users" % l.project_id, data=p, name="/project/[id]/users")
+    # print(str(res.content))
 
 def spell_check(l):
     data = dict(language="en", _csrf=l.csrf_token, words=randomwords.sample(1, 1), token=l.user_id)
@@ -271,9 +330,12 @@ def file_upload(l):
     resp = l.client.post("/project/%s/upload" % l.project_id, params=p, files=files, name="/project/[id]/upload")
 
 def show_history(l):
-    l.client.get("/project/%s/updates" % l.project_id, params={"min_count": 10}, name="/project/[id]/updates")
-    u =  "/project/%s/doc/%s/diff" % (l.project_id, l.websocket.root_folder['_id'])
-    l.client.get(u, params={'from':1, 'to':2}, name="/project/[id]/doc/[id]/diff")
+    l.client.get("/project/%s/updates?min_count=10" % l.project_id)
+    l.client.get("/project/{}/doc/{}/diff?from=1&to=2".format(l.project_id, l.websocket.root_folder['_id']))
+
+    # l.client.get("/project/%s/updates" % l.project_id, params={"min_count": 10}, name="/project/[id]/updates")
+    # u =  "/project/%s/doc/%s/diff" % (l.project_id, l.websocket.root_folder['_id'])
+    # l.client.get(u, params={'from':1, 'to':2}, name="/project/[id]/doc/[id]/diff")
 
 def compile(l):
     d = {"rootDoc_id": l.websocket.root_folder['_id'] ,"draft": False,"_csrf": l.csrf_token}
@@ -408,7 +470,7 @@ def set_project(l):
 
 
 class Page(TaskSet):
-    tasks = { stop: 1, chat: 2, edit_document: 2, file_upload: 2, show_history: 2, file_upload: 2, compile: 2, share_project: 1, spell_check: 0}
+    tasks = { stop: 1, chat: 20, edit_document: 2, file_upload: 2, show_history: 2, file_upload: 2, compile: 2, share_project: 1, spell_check: 10}
     def on_start(self):
         projects = self.parent.projects
         assert len(projects) > 0
@@ -416,16 +478,17 @@ class Page(TaskSet):
         self.project_id = projects["projects"][0]["id"]
         
         page = self.client.get("/project/%s" % self.project_id, name="/project/[id]")
+        # print(page.content)
+        # print("==============")
         self.csrf_token = csrf.find_in_page(page.content)
         self.user_id = find_user_id(page.content)
-        print(self.project_id, self.csrf_token, self.user_id)
-        print("==============")
+        # print(self.project_id, self.csrf_token, self.user_id)
         self.websocket = Websocket(self)
-        print("here")
+        # print("here")
         def _receive():
             try:
                 while True:
-                    print("inside websocket")
+                    # print("inside websocket")
                     self.websocket.recv()
             except:
                 print("websocket closed")

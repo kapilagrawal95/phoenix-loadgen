@@ -59,8 +59,8 @@ class Client():
         pkt = {"ack": "data", "type": "event", "name": name, "args": args}
         if id is not None:
             pkt["id"] = id
-        print("in emit")
-        print(pkt)
+        # print("in emit")
+        # print(pkt)
         self._send(pkt)
 
     def on(self, event, callback):

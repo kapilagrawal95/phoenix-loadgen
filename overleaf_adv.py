@@ -107,7 +107,7 @@ class UserBehavior(TaskSet):
         global logins_per_acc
         user += 1.0 / logins_per_acc
         self.email = "admin@example.com"
-        print(self.email)
+        # print(self.email)
         login(self)
 
 class WebsiteUser(HttpUser):
